@@ -63,9 +63,8 @@ if [ $d_opt = true ] ; then #if user use option -d
 		       echo "Directory: $dfile is crated success"
 	       else
 		       #when can not create 
-		       echo "your path that you create direcotry is need superuser"
-		       sudo mkdir $dfile
-		       sudo chown $user:"users" $dfile
+		       echo -n "your path that you create direcotry is need superuser"
+		       su -c "mkdir $dfile && chown $user:users $dfile " root
 		fi
 	fi
 fi
@@ -73,10 +72,14 @@ if [ $f_opt = true ] ; then #if user use option -f
         if [ -e $ffile ] ; then #chek file that user input exists or not
                 echo "$ffile is alredy exist !!!!" ; exit 2 #if exists display error message 
         else
-                touch $ffile;  #if not exist create directory
-                echo "Regular file: $ffile is created " #when created message to user
-
-        fi
+                if touch $ffile 2> /dev/null; then #if file can not create require to super user
+			echo "Regular file: $ffile is created " #when created message to user
+		else
+			echo -n "your file directory is need to superuser "
+			su -c "touch $ffile && chown $user:users $ffile" root
+			echo "file $ffile is create success"
+		fi
+	fi
 fi
 
 
