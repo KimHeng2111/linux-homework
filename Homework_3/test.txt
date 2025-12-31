@@ -1,0 +1,6 @@
+mkdir: cannot create directory ‘/home/linux-lab’: Permission denied
+mkdir: cannot create directory ‘/home/linux-l’: Permission denied
+mkdir: cannot create directory ‘/home/linux-l’: Permission denied
+mkdir: cannot create directory ‘/home/linux-lab’: Permission denied
+mkdir: cannot create directory ‘/home/test1’: Permission denied
+mkdir: cannot create directory ‘/home/linux_lab’: Permission denied
