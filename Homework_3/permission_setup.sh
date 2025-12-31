@@ -8,7 +8,6 @@ changeowner(){
 	echo -n "to change file owner is required password of superuser " #required password to change owner
 	su -c "chown $us $file" root
 	echo "Change file owner to current user: $us is succes"
-	echo "can not change file owner " 
 }
 changepermission(){
 	local octal=$1
@@ -17,7 +16,11 @@ changepermission(){
 		echo -n "to change permission this file is required password of superuser "
 		su -c "chmod $octal $file" root
 	fi
-	echo "$(ls -l $file)"
+	if [ -d $file ] ; then
+		echo "$(ls -l $file/..)"
+	else
+		echo "$(ls -l $file)"
+	fi
 }
 
 if [ $# -le 1 ] ; then
@@ -33,16 +36,38 @@ if [ $# -le 1 ] ; then
 	ls -l $dir
 else
 	if [ $1 = "-c" ] ; then
-		if [ ! -e $2 ] ; then
-                        echo "file or direcotry : $2 is not exists" ; exit 2
-		fi
-		owner=$(ls -l $2 | awk '{print $3}')
-		if [ $user = $owner ] ; then
-			echo "the current owner is current user : $user alredy " ; exit 1
+		if [ $# -eq 2 ] ; then
+			if [ ! -e $2 ] ; then
+				echo "file or directory : $2 is not exists" ; exit 2
+			else
+				owner=$(stat -c %U $2)
+				if [ $user = $owner ] ; then
+					echo "the current owner is current user : $user alredy " ; exit 1
+				else
+					changeowner $user $2
+				fi
+			fi
+		elif [ $# -eq 3 ] ; then
+			echo "$owner"
+			if [ ! -e $3 ] ; then
+				echo "file or directory : $3 is not exists" ; exit 2
+			else
+				owner=$(stat -c %U $2)
+				if [ "$2" = "$owner" ] ; then
+					echo "the current owner is current user : $2 alredy " ; exit 1
+				else
+					echo "file owner : $owner  request change to $2"
+					changeowner $2 $3
+				fi
+			fi
 		else
-			changeowner $user $2
+			echo "option get only one value !!!" ; exit 2
 		fi
+		shift 2
 	fi
+	if [ $# -lt 2 ] ; then
+	       exit 2
+	fi 
 	if [ $1 = "-p" ] ; then
 		if [ ! -e $3 ] ; then
                         echo "file or direcotry : $2 is not exists" ; exit 2
