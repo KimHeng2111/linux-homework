@@ -1,19 +1,41 @@
 #!/bin/bash
-#current user
-user=$(getent passwd $UID | cut -d: -f1)
 #this function is use for change owner of file
 changeowner(){
 	local us=$1 #paramter 1 is the user for cahgne to owner of file
-	local file=$2 #parameter 2 is store file
-	echo -n "to change file owner is required password of superuser " #required password to change owner
-	su -c "chown $us $file" root
-	echo "Change file owner to current user: $us is succes"
+	local gp=$2 #parameter 3 is group if user input
+	local file=$([ $# -gt 2 ] && echo $3 || echo $2) #parameter 2 is store file
+	if [ ! -e $file ] ; then
+		echo "file or directory : $file is not exists" ; exit 1
+	else
+		owner=$(stat -c %U $file)
+		if [ $us = $owner ] ; then
+			echo "the current owner is current user : $us alredy " ; exit 1
+		else
+			echo -n "to change file owner is required password of superuser " #required password to change owner
+			if [ $gp != "." ] ; then
+				# grouponwer=$(stat -c %G $file)
+				# if [ $gp = $grouponwer ] ; then
+				# 	echo "the current group owner is current group : $gp alredy " ; exit 1
+				# fi
+				su -c "chown $us:$gp $file" root
+				echo "Change file owner to user: $us and group: $gp is succes"
+				exit 0
+			else
+				su -c "chown $us $file" root
+				echo "Change file owner to current user: $us is succes"
+			fi
+		fi
+	fi
+	
 }
 changepermission(){
 	local octal=$1
 	local file=$2
+	if [ ! -e $file ] ; then
+		echo "file or direcotry : $file is not exists" ; exit 1
+	fi
 	if ! chmod $octal $file 2>> /dev/null ; then
-		echo -n "to change permission this file is required password of superuser "
+		echo -n "to change permission this file is required superuser's "
 		su -c "chmod $octal $file" root
 	fi
 	if [ -d $file ] ; then
@@ -22,58 +44,69 @@ changepermission(){
 		echo "$(ls -l $file)"
 	fi
 }
-
-if [ $# -le 1 ] ; then
-	if [ $# -eq 0 ] ; then
-		dir="."
-	else
-		if [ ! -e $1 ] ; then
-                        echo "file or direcotry : $1 is not exists" ; exit 2
-                else
-                         dir=$1
-                fi
+if [ $# -gt 0 ] ; then
+	while getopts ":c:p:" opt
+	do
+		case $opt in
+			c) c_opt=true;;
+			p) p_opt=true;echo "$OPTARG";;
+			:) echo "-$OPTARG is require value " ; exit 1;;
+			*) echo "your option -$OPTARG is invalid " ; exit 1;;
+		esac
+	done
+	if [ $c_opt ] ; then
+			shift 1
+			user=$( [ $# -gt 2 ] && echo $1 || echo $USER )
+			group=$( [ $# -eq 3 ] && echo $2 || echo "." )
+			file=$( [ $# -eq 1 ] && echo $1 || [ $group != "." ] && echo $3 || echo $2 )
+			echo "$user : $group : $file"
+			changeowner $user $group $file
 	fi
-	ls -l $dir
-else
-	if [ $1 = "-c" ] ; then
-		if [ $# -eq 2 ] ; then
-			if [ ! -e $2 ] ; then
-				echo "file or directory : $2 is not exists" ; exit 2
-			else
-				owner=$(stat -c %U $2)
-				if [ $user = $owner ] ; then
-					echo "the current owner is current user : $user alredy " ; exit 1
-				else
-					changeowner $user $2
-				fi
+	if [ $p_opt ] ; then
+			if [ $# -ne 3 ] ; then
+				echo "option -p require two value " ; exit 1
 			fi
-		elif [ $# -eq 3 ] ; then
-			echo "$owner"
 			if [ ! -e $3 ] ; then
-				echo "file or directory : $3 is not exists" ; exit 2
-			else
-				owner=$(stat -c %U $2)
-				if [ "$2" = "$owner" ] ; then
-					echo "the current owner is current user : $2 alredy " ; exit 1
-				else
-					echo "file owner : $owner  request change to $2"
-					changeowner $2 $3
-				fi
+                echo "file or direcotry : $2 is not exists" ; exit 1
 			fi
-		else
-			echo "option get only one value !!!" ; exit 2
-		fi
-		shift 2
+				changepermission $2 $3
 	fi
-	if [ $# -lt 2 ] ; then
-	       exit 2
-	fi 
-	if [ $1 = "-p" ] ; then
-		if [ ! -e $3 ] ; then
-                        echo "file or direcotry : $2 is not exists" ; exit 2
+else
+	while true ; do
+		clear
+		echo "====Permission Setup Menu===="
+		echo "1. Change Owner of File/Directory"
+		echo "2. Change Permission of File/Directory"
+		echo "3. Exit"
+		echo -n "Please enter your choice : "
+		read choice
+		echo -n "display list directory [default is current directory] : "
+		read dir
+		if [ $((choice)) -lt 3 ] ; then
+			echo "$(ls -l $([ -z $dir ] && echo "." || echo $dir) )"
 		fi
-		changepermission $2 $3
-		
-	fi
-
+		case $choice in
+			1) echo -n "Enter file/directory name with path : "
+			   read filename
+			   echo -n "Enter new owner user name : "
+			   read newuser
+			   echo -n "Enter new group name default no change : "
+			   read newgroup
+			   newgroup=$( [ -z $newgroup ] && echo "." || echo $newgroup )
+			   changeowner $newuser $newgroup $filename
+			   echo -n "Press any key to continue " ;
+			   read  ;;
+			   
+			2) echo -n "Enter permission in octal format : "
+			   read octal
+			   echo -n "Enter file/directory name with path : "
+			   read filename
+			   changepermission $octal $filename
+			   echo -n "Press any key to continue " ;
+			   read ;;
+			3) clear; exit 0 ;;
+			*) echo "Your choice is invalid , please press any key to try again " ;read;;
+		esac
+	done
 fi
+##################################################################################################

@@ -1,9 +1,4 @@
 #!/bin/bash
-g="" #option for create group
-u="" #option for create user
-h="" #option for home directory for now account
-A="" #option for add group to user
-
 #function check user or group already exists or not
 check(){
 	opt=$1
