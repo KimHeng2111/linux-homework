@@ -1,5 +1,29 @@
 #!/bin/bash
 #function check user or group already exists or not
+help(){
+	echo "Usage: $0 [options] [arguments]"
+            echo
+            echo "Options:"
+            echo "  -u username        Create a new user"
+            echo "     * Requires a username argument"
+            echo "     * Can combine with -g to assign group"
+            echo "     * Can combine with -h to auto-confirm"
+            echo
+            echo "  -g groupname       Create a new group"
+            echo "     * Requires a group name argument"
+            echo
+            echo "  -A user group      Add user to group"
+            echo "     * Requires username and group name"
+            echo
+            echo "  -h                 Show this help message"
+            echo
+            echo "Examples:"
+            echo "  $0 -u heng"
+            echo "  $0 -u heng -g staff"
+            echo "  $0 -g developers"
+            echo "  $0 -A heng staff"
+            exit 0
+}
 check(){
 	opt=$1
 	name=$2
@@ -38,12 +62,12 @@ createuser(){
 	local uname=$([ $# -eq 3 ] && echo "$3" || ([ $# -eq 2 ] && echo "$2" || echo "$1"))
 	echo "Username: $uname"
 	echo "Home Directory: $([ $homedir = "y" ] && echo "Create" || echo "Not Create")"
-	echo "Group: $([ $group ] && echo "$group" || echo "None")"
+	echo "Group: $([ $group ] && echo "$group" || echo "$uname")"
 	if [[ $(check -u $uname) ]]  ; then
 		echo "your username is already exists"; exit 1
 	else
 		if [[ $(groups $USER) == *"sudo "* ]] ; then
-			sudo adduser $([[ $homedir == "n" ]] && echo "--no-create-home") --disabled-password --gecos "" "$uname"
+			sudo adduser $([[ $homedir == "n" ]] && echo "--no-create-home") $([[ $group ]] && echo "--ingroup $group") --disabled-password --gecos "" "$uname" >/dev/null 2>&1
 			$([ $group ] && echo "sudo usermod -aG $group $uname")
 			sudo passwd -de $uname > /dev/null
 		else
@@ -51,7 +75,7 @@ createuser(){
 			read -s password
 			echo ""
 			home=$([ $homedir = "n" ] && echo "--no-create-home")
-			su -c "adduser $home --disabled-password --gecos '' $uname" root <<< "$password" >/dev/null 2>&1
+			su -c "adduser $home $([[ $group ]] && echo "--ingroup $group") --disabled-password --gecos '' $uname" root <<< "$password" >/dev/null 2>&1
 			if [ $group ] ; then
 				su -c "usermod -aG $group $uname" root <<< "$password" > /dev/null 2>&1
 			fi
@@ -96,33 +120,40 @@ if [ $# -eq 0 ] ; then
 		echo -n "Your choice [1-4]: "
 		read choice
 		case $choice in
-			1) echo -n "Enter group name: "
+			1) echo "============Create Group============"
+			   echo -n "Enter group name: "
 			   read gname
 			   echo -n "Enter username to join in group(leave blank if none): "
 			   read user
-			   creategroup $user $gname
-			   read -p "Press [any key] key to continue..." ;;
-			2) echo -n "Enter username: "
+			   creategroup $user $gname;;
+			2) echo "============Create User============"
+			   echo -n "Enter username: "
 			   read uname
 			   echo -n "create home directory (y/n)? default n: "
 			   read homedir
 			   homedir=$( [ "$homedir" = "y" ] && echo "y" || echo "n" )
 			   echo -n "Enter exists group or blank : "
 			   read group
-			   echo "$uname : $homedir : $group"
-			   createuser $homedir $group $uname
-			   read -p "Press [any key] key to continue..." ;;
-			3) echo -n "Enter username(s) (comma separated for multiple): "
+			   createuser $homedir $group $uname;;
+			3) echo "============Add Users to Group============"
+			   echo -n "Enter username(s) (comma separated for multiple): "
 			   read users
 			   echo -n "Enter group name: "
 			   read gname
-			   userstogroup $users $gname
-			   read -p "Press [any key] key to continue..." ;;
+			   userstogroup $users $gname;;
 			4) exit 0 ;;
-			*) echo "Invalid choice!" ; read -p "Press [any key] key to continue..." ;;
+			*) echo "Invalid choice!" ;;
 		esac
+		echo -n "Press any key to refresh or 'q' to quit..."
+		read -n 1 input
+		if [ "$input" = "q" ] || [ "$input" = "Q" ] ; then
+			break
+		fi
 	done
 else
+	if [ $1 = "--help" ] ; then
+		help; exit 0
+	fi
 	while getopts ":ug:hA:" opt ; do
 		case $opt in 
 			u) u=true;;
@@ -130,7 +161,7 @@ else
 			h) h=true;;
 			A) A=true;;
 			:) echo "required value of option -$OPTARG";;	
-			\?) echo "option -$OPTARG is invalid";;
+			\?) echo "option -$OPTARG is invalid";help; exit 1;;
 		esac
 	done
 	if [ $u ] ; then
