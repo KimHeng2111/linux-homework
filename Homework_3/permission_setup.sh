@@ -1,5 +1,10 @@
 #!/bin/bash
 #this function is use for change owner of file
+help(){
+	echo "Usage: $0 [-c user [group]] file  : change owner of file to user and group"
+	echo "       $0 -p octal file           : change permission of file to octal format"
+	echo "       $0                         : interactive mode"
+}
 changeowner(){
 	local us=$1 #paramter 1 is the user for cahgne to owner of file
 	local gp=$2 #parameter 3 is group if user input
@@ -17,16 +22,17 @@ changeowner(){
 				# if [ $gp = $grouponwer ] ; then
 				# 	echo "the current group owner is current group : $gp alredy " ; exit 1
 				# fi
-				su -c "chown $us:$gp $file" root
-				echo "Change file owner to user: $us and group: $gp is succes"
-				exit 0
+				if su -c "chown $us:$gp $file" root ; then
+					echo "Change file owner to user: $us and group: $gp is succes"
+				else 
+					echo "can not change owner please check user or group is exists" ; exit 1
+				fi
 			else
 				su -c "chown $us $file" root
 				echo "Change file owner to current user: $us is succes"
 			fi
 		fi
 	fi
-	
 }
 changepermission(){
 	local octal=$1
@@ -51,7 +57,7 @@ if [ $# -gt 0 ] ; then
 			c) c_opt=true;;
 			p) p_opt=true;echo "$OPTARG";;
 			:) echo "-$OPTARG is require value " ; exit 1;;
-			*) echo "your option -$OPTARG is invalid " ; exit 1;;
+			*) echo "your option -$OPTARG is invalid " ; help; exit 1;;
 		esac
 	done
 	if [ $c_opt ] ; then
@@ -80,33 +86,36 @@ else
 		echo "3. Exit"
 		echo -n "Please enter your choice : "
 		read choice
-		echo -n "display list directory [default is current directory] : "
-		read dir
 		if [ $((choice)) -lt 3 ] ; then
+			echo -n "display list directory [default is current directory] or n for not display: "
+			read dir
+			[ "$dir" = "n" ] ||
 			echo "$(ls -l $([ -z $dir ] && echo "." || echo $dir) )"
 		fi
 		case $choice in
-			1) echo -n "Enter file/directory name with path : "
+			1) echo "============change Owner of File/Directory============"
+			   echo -n "Enter file/directory name with path : "
 			   read filename
 			   echo -n "Enter new owner user name : "
 			   read newuser
 			   echo -n "Enter new group name default no change : "
 			   read newgroup
 			   newgroup=$( [ -z $newgroup ] && echo "." || echo $newgroup )
-			   changeowner $newuser $newgroup $filename
-			   echo -n "Press any key to continue " ;
-			   read  ;;
-			   
-			2) echo -n "Enter permission in octal format : "
-			   read octal
+			   changeowner $newuser $newgroup $filename;;
+			2) echo "============change Permission of File/Directory============"
 			   echo -n "Enter file/directory name with path : "
 			   read filename
-			   changepermission $octal $filename
-			   echo -n "Press any key to continue " ;
-			   read ;;
+			   echo -n "Enter permission in octal format : "
+			   read octal
+			   changepermission $octal $filename;;
 			3) clear; exit 0 ;;
-			*) echo "Your choice is invalid , please press any key to try again " ;read;;
+			*) echo "Your choice is invalid";;
 		esac
+		echo -n "Press any key to refresh or 'q' to quit..."
+		read -n 1 input
+		if [ "$input" = "q" ] || [ "$input" = "Q" ] ; then
+			break
+		fi
 	done
 fi
 ##################################################################################################
